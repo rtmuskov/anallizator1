@@ -1,42 +1,70 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
-import { Measurement } from '../types';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import { Measurement, MeasurementData, measurementAPI } from '../api/measurement';
+import { useAuth } from './AuthContext';
 
 interface MeasurementContextType {
   measurements: Measurement[];
-  addMeasurement: (measurement: Measurement) => void;
-  getMeasurementById: (id: string) => Measurement | undefined;
+  addMeasurement: (measurementData: MeasurementData) => Promise<void>;
+  getMeasurementById: (id: number) => Measurement | undefined;
   getLatestMeasurement: () => Measurement | undefined;
+  isLoadingMeasurements: boolean;
 }
 
 const MeasurementContext = createContext<MeasurementContextType | undefined>(undefined);
 
 export const MeasurementProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [measurements, setMeasurements] = useState<Measurement[]>(() => {
-    // Load measurements from localStorage on initial render
-    const savedMeasurements = localStorage.getItem('measurements');
-    return savedMeasurements ? JSON.parse(savedMeasurements) : [];
-  });
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [isLoadingMeasurements, setIsLoadingMeasurements] = useState(true);
+  const { isAuth, isLoading: isLoadingAuth } = useAuth();
 
-  // Save measurements to localStorage whenever they change
-  React.useEffect(() => {
-    localStorage.setItem('measurements', JSON.stringify(measurements));
-  }, [measurements]);
+  useEffect(() => {
+    const fetchMeasurements = async () => {
+      if (!isAuth) {
+        setMeasurements([]);
+        setIsLoadingMeasurements(false);
+        return;
+      }
+      setIsLoadingMeasurements(true);
+      try {
+        const data = await measurementAPI.getAllMeasurements();
+        setMeasurements(data);
+      } catch (e) {
+        console.error('Ошибка при загрузке измерений:', e);
+        setMeasurements([]);
+      } finally {
+        setIsLoadingMeasurements(false);
+      }
+    };
 
-  const addMeasurement = (measurement: Measurement) => {
-    setMeasurements((prevMeasurements) => [...prevMeasurements, measurement]);
+    if (!isLoadingAuth) {
+        fetchMeasurements();
+    }
+
+  }, [isAuth, isLoadingAuth]);
+
+  const addMeasurement = async (measurementData: MeasurementData) => {
+    try {
+        await measurementAPI.createMeasurement(measurementData);
+        const updatedMeasurements = await measurementAPI.getAllMeasurements();
+        setMeasurements(updatedMeasurements);
+    } catch (e) {
+        console.error('Ошибка при добавлении измерения:', e);
+        throw e;
+    }
   };
 
-  const getMeasurementById = (id: string) => {
+  const getMeasurementById = (id: number) => {
     return measurements.find((m) => m.id === id);
   };
 
   const getLatestMeasurement = () => {
     if (measurements.length === 0) return undefined;
     
-    // Sort by date and get the most recent
-    return [...measurements].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    )[0];
+    return [...measurements].sort((a, b) => {
+      const dateComparison = new Date(b.date).getTime() - new Date(a.date).getTime();
+      if (dateComparison !== 0) return dateComparison;
+      return b.id - a.id;
+    })[0];
   };
 
   return (
@@ -45,7 +73,8 @@ export const MeasurementProvider: React.FC<{ children: ReactNode }> = ({ childre
         measurements, 
         addMeasurement, 
         getMeasurementById, 
-        getLatestMeasurement 
+        getLatestMeasurement, 
+        isLoadingMeasurements,
       }}
     >
       {children}

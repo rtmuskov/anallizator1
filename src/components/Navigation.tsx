@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Activity, ClipboardList, Home, Menu, User, X } from 'lucide-react';
+import { Activity, ClipboardList, Home, Menu, User, X, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Navigation: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { isAuth, logout } = useAuth();
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -48,6 +50,16 @@ const Navigation: React.FC = () => {
                 {item.label}
               </NavLink>
             ))}
+
+            {isAuth && (
+              <button
+                onClick={logout}
+                className="flex items-center px-1 py-2 text-sm font-medium text-gray-700 hover:text-primary-600 transition-colors duration-200 focus:outline-none"
+              >
+                <span className="mr-1.5"><LogOut size={20} /></span>
+                Выйти
+              </button>
+            )}
           </nav>
 
           {/* Mobile menu button */}
@@ -84,6 +96,16 @@ const Navigation: React.FC = () => {
                 {item.label}
               </NavLink>
             ))}
+
+            {isAuth && (
+              <button
+                onClick={() => { logout(); closeMenu(); }}
+                className="flex items-center px-4 py-3 rounded-md text-gray-700 hover:bg-gray-50 hover:text-primary-600 focus:outline-none"
+              >
+                <span className="mr-3"><LogOut size={20} /></span>
+                Выйти
+              </button>
+            )}
           </nav>
         </div>
       )}

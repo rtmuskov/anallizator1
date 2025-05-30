@@ -2,24 +2,33 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useMeasurements } from '../context/MeasurementContext';
-import { Measurement } from '../types';
-import { calculateBMI } from '../utils/healthCalculations';
-import { v4 as uuidv4 } from 'uuid';
 import { Save, X } from 'lucide-react';
+
+interface FormDataState {
+  date: string;
+  weight: number;
+  bodyFatPercentage: number;
+  skeletalMuscleMass: number | null;
+  visceralFat: number | null;
+  waterPercentage: number | null;
+  basalMetabolicRate: number | null;
+  metabolicAge: number | null;
+}
 
 const DataEntry: React.FC = () => {
   const { user } = useUser();
   const { addMeasurement } = useMeasurements();
   const navigate = useNavigate();
   
-  const [formData, setFormData] = useState<Partial<Measurement>>({
+  const [formData, setFormData] = useState<FormDataState>({
+    date: new Date().toISOString().split('T')[0], // Формат YYYY-MM-DD
     weight: 0,
-    bodyFatMass: 0,
     bodyFatPercentage: 0,
-    skeletalMuscleMass: 0,
-    visceralFat: 0,
-    waterPercentage: 0,
-    basalMetabolicRate: 0,
+    skeletalMuscleMass: null,
+    visceralFat: null,
+    waterPercentage: null,
+    basalMetabolicRate: null,
+    metabolicAge: null,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -44,7 +53,7 @@ const DataEntry: React.FC = () => {
     
     setFormData({
       ...formData,
-      [name]: numberValue,
+      [name]: numberValue === undefined || isNaN(numberValue) ? null : numberValue,
     });
     
     // Clear error when field is modified
@@ -64,28 +73,36 @@ const DataEntry: React.FC = () => {
       newErrors.weight = 'Требуется указать вес больше 0';
     }
     
-    if (!formData.bodyFatPercentage || formData.bodyFatPercentage < 0) {
-      newErrors.bodyFatPercentage = 'Требуется указать процент жира (неотрицательное число)';
+    // Валидация процента жира, если он не null
+    if (formData.bodyFatPercentage != null && (formData.bodyFatPercentage < 0 || formData.bodyFatPercentage > 100)) {
+        newErrors.bodyFatPercentage = 'Процент жира должен быть от 0 до 100';
     }
     
-    if (!formData.skeletalMuscleMass || formData.skeletalMuscleMass <= 0) {
-      newErrors.skeletalMuscleMass = 'Требуется указать мышечную массу больше 0';
+    // Валидация мышечной массы, если она не null
+    if (formData.skeletalMuscleMass != null && formData.skeletalMuscleMass <= 0) {
+       newErrors.skeletalMuscleMass = 'Требуется указать мышечную массу больше 0, если она введена';
     }
     
-    // Range validations
-    if (formData.bodyFatPercentage && (formData.bodyFatPercentage < 0 || formData.bodyFatPercentage > 100)) {
-      newErrors.bodyFatPercentage = 'Процент жира должен быть от 0 до 100';
+    // Валидация процента воды, если он не null
+    if (formData.waterPercentage != null && (formData.waterPercentage < 0 || formData.waterPercentage > 100)) {
+        newErrors.waterPercentage = 'Процент воды должен быть от 0 до 100, если он введен';
     }
     
-    if (formData.waterPercentage && (formData.waterPercentage < 0 || formData.waterPercentage > 100)) {
-      newErrors.waterPercentage = 'Процент воды должен быть от 0 до 100';
+    // Валидация висцерального жира, если он не null
+    if (formData.visceralFat != null && formData.visceralFat < 1) {
+        newErrors.visceralFat = 'Уровень висцерального жира должен быть не менее 1, если он введен';
+    }
+
+    // Валидация метаболического возраста, если он не null
+    if (formData.metabolicAge != null && formData.metabolicAge < 1) {
+        newErrors.metabolicAge = 'Метаболический возраст должен быть не менее 1, если он введен';
     }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormSubmitted(true);
     
@@ -93,32 +110,31 @@ const DataEntry: React.FC = () => {
       return;
     }
     
-    // Calculate derived values
-    const bmi = calculateBMI(formData.weight!, user.height);
-    const bodyFatMass = formData.weight! * (formData.bodyFatPercentage! / 100);
-    
-    // Create new measurement
-    const newMeasurement: Measurement = {
-      id: uuidv4(),
-      userId: user.id,
-      date: new Date(),
+    // Рассчитываем fatMass из weight и bodyFatPercentage
+    const fatMass = formData.weight != null && formData.bodyFatPercentage != null
+        ? (formData.weight * formData.bodyFatPercentage) / 100
+        : undefined; // undefined, если данные неполные
+
+    // Создаем объект с данными измерения для отправки на бэкенд
+    const measurementDataForApi = {
+      date: formData.date,
       weight: formData.weight!,
-      bodyFatMass: bodyFatMass,
-      bodyFatPercentage: formData.bodyFatPercentage!,
-      skeletalMuscleMass: formData.skeletalMuscleMass!,
-      bmi: bmi,
-      pbf: formData.bodyFatPercentage!, // Same as bodyFatPercentage
-      visceralFat: formData.visceralFat || 0,
-      waterPercentage: formData.waterPercentage || 0,
-      basalMetabolicRate: formData.basalMetabolicRate || 0,
-      metabolicAge: formData.metabolicAge,
+      fatMass: fatMass || 0, // Используем рассчитанный fatMass. Отправляем 0 или null, если расчет не удался.
+      skeletalMuscleMass: formData.skeletalMuscleMass || null,
+      visceralFat: formData.visceralFat || null,
+      waterPercentage: formData.waterPercentage || null,
+      basalMetabolicRate: formData.basalMetabolicRate || null,
+      metabolicAge: formData.metabolicAge || null,
     };
     
-    // Add measurement to context
-    addMeasurement(newMeasurement);
-    
-    // Navigate to dashboard
-    navigate('/');
+    try {
+        await addMeasurement(measurementDataForApi);
+        // Navigate to dashboard
+        navigate('/');
+    } catch (error) {
+        console.error('Ошибка при добавлении измерения:', error);
+        alert('Произошла ошибка при сохранении измерения. Пожалуйста, попробуйте снова.');
+    }
   };
 
   const handleCancel = () => {

@@ -60,7 +60,7 @@ export interface ChartData {
   }>;
 }
 
-export type HealthStatus = 'underweight' | 'normal' | 'overweight' | 'obese' | 'low' | 'high' | 'very-high';
+export type HealthStatus = 'underweight' | 'normal' | 'overweight' | 'obese' | 'low' | 'high' | 'very-high' | 'critically-low' | 'critically-high';
 
 export interface AnalysisResult {
   parameter: string;

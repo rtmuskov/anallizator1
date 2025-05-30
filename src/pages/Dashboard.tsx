@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useMeasurements } from '../context/MeasurementContext';
-import { HealthStatus, AnalysisResult } from '../types';
-import { generateAnalysis } from '../utils/healthCalculations';
+import { HealthStatus } from '../types';
+import { generateAnalysis, calculateBMI, calculateBodyFatPercentage, AnalysisResult } from '../utils/healthCalculations';
 import HealthMetricCard from '../components/HealthMetricCard';
 import MeasurementChart from '../components/MeasurementChart';
 import AnalysisResultCard from '../components/AnalysisResultCard';
-import { Weight, HeartPulse, Dumbbell, Gauge, Plus, Activity } from 'lucide-react';
+import { Weight, HeartPulse, Dumbbell, Gauge, Plus, Activity, Thermometer, Droplet, Flame, Clock } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const { user } = useUser();
@@ -19,12 +19,38 @@ const Dashboard: React.FC = () => {
     ? measurements[measurements.length - 2] 
     : undefined;
 
+  const latestFatPercentage = latestMeasurement && latestMeasurement.weight != null && latestMeasurement.fatMass != null
+    ? calculateBodyFatPercentage(latestMeasurement.weight, latestMeasurement.fatMass)
+    : undefined;
+  const latestBMI = latestMeasurement && user?.height != null
+    ? calculateBMI(latestMeasurement.weight, user.height)
+    : undefined;
+
+  const previousFatPercentage = previousMeasurement && previousMeasurement.weight != null && previousMeasurement.fatMass != null
+    ? calculateBodyFatPercentage(previousMeasurement.weight, previousMeasurement.fatMass)
+    : undefined;
+  const previousBMI = previousMeasurement && user?.height != null
+    ? calculateBMI(previousMeasurement.weight, user.height)
+    : undefined;
+
   useEffect(() => {
     if (user && latestMeasurement) {
-      const results = generateAnalysis(latestMeasurement, user);
+      const measurementWithCalculated = {
+        ...latestMeasurement,
+        bmi: latestBMI,
+        bodyFatPercentage: latestFatPercentage,
+        visceralFat: latestMeasurement.visceralFat ?? 0 as number,
+        skeletalMuscleMass: latestMeasurement.skeletalMuscleMass ?? 0 as number,
+        waterPercentage: latestMeasurement.waterPercentage ?? 0 as number,
+        basalMetabolicRate: latestMeasurement.basalMetabolicRate ?? 0 as number,
+        metabolicAge: latestMeasurement.metabolicAge ?? 0 as number,
+      };
+      const results = generateAnalysis(measurementWithCalculated as any, user as any);
       setAnalysis(results);
+    } else {
+      setAnalysis([]);
     }
-  }, [user, latestMeasurement]);
+  }, [user, latestMeasurement, measurements]);
 
   if (!user || !latestMeasurement) {
     return (
@@ -57,7 +83,7 @@ const Dashboard: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Главная панель</h1>
           <p className="text-gray-600 mt-1">
-            Последнее измерение: {formatDate(latestMeasurement.date)}
+            Последнее измерение: {formatDate(new Date(latestMeasurement.date))}
           </p>
         </div>
         <Link to="/data-entry" className="btn-primary mt-4 md:mt-0 inline-flex items-center">
@@ -77,25 +103,57 @@ const Dashboard: React.FC = () => {
         />
         <HealthMetricCard
           title="Жировая масса"
-          value={latestMeasurement.bodyFatPercentage}
+          value={latestFatPercentage ?? 0}
           unit="%"
           status={analysis.find(a => a.parameter.includes('жира'))?.status}
-          previousValue={previousMeasurement?.bodyFatPercentage}
+          previousValue={previousFatPercentage ?? 0}
           icon={<HeartPulse size={24} />}
         />
         <HealthMetricCard
           title="Мышечная масса"
-          value={latestMeasurement.skeletalMuscleMass}
+          value={latestMeasurement.skeletalMuscleMass ?? 0}
           unit="кг"
-          previousValue={previousMeasurement?.skeletalMuscleMass}
+          status={analysis.find(a => a.parameter.includes('Мышечная масса'))?.status}
+          previousValue={previousMeasurement?.skeletalMuscleMass ?? 0}
           icon={<Dumbbell size={24} />}
         />
         <HealthMetricCard
           title="ИМТ"
-          value={latestMeasurement.bmi}
+          value={latestBMI ?? 0}
           status={analysis.find(a => a.parameter.includes('ИМТ'))?.status}
-          previousValue={previousMeasurement?.bmi}
+          previousValue={previousBMI ?? 0}
           icon={<Gauge size={24} />}
+        />
+        <HealthMetricCard
+          title="Висцеральный жир"
+          value={latestMeasurement.visceralFat ?? 0}
+          status={analysis.find(a => a.parameter.includes('Висцеральный жир'))?.status}
+          previousValue={previousMeasurement?.visceralFat ?? 0}
+          icon={<Thermometer size={24} />}
+        />
+        <HealthMetricCard
+          title="Вода (%)"
+          value={latestMeasurement.waterPercentage ?? 0}
+          unit="%"
+          status={analysis.find(a => a.parameter.includes('Вода'))?.status}
+          previousValue={previousMeasurement?.waterPercentage ?? 0}
+          icon={<Droplet size={24} />}
+        />
+        <HealthMetricCard
+          title="Базовый обмен веществ"
+          value={latestMeasurement.basalMetabolicRate ?? 0}
+          unit="ккал"
+          status={analysis.find(a => a.parameter.includes('обмен веществ'))?.status}
+          previousValue={previousMeasurement?.basalMetabolicRate ?? 0}
+          icon={<Flame size={24} />}
+        />
+        <HealthMetricCard
+          title="Метаболический возраст"
+          value={latestMeasurement.metabolicAge ?? 0}
+          unit="лет"
+          status={analysis.find(a => a.parameter.includes('Метаболический возраст'))?.status}
+          previousValue={previousMeasurement?.metabolicAge ?? 0}
+          icon={<Clock size={24} />}
         />
       </div>
 
@@ -108,10 +166,60 @@ const Dashboard: React.FC = () => {
           color="rgb(59, 130, 246)"
         />
         <MeasurementChart
-          measurements={measurements}
+          measurements={measurements.map(m => ({
+            ...m,
+            bodyFatPercentage: m.weight != null && m.fatMass != null
+              ? calculateBodyFatPercentage(m.weight, m.fatMass)
+              : undefined,
+          })) as any}
           metric="bodyFatPercentage"
           label="Жировая масса (%)"
           color="rgb(239, 68, 68)"
+        />
+        <MeasurementChart
+          measurements={measurements.map(m => ({
+            ...m,
+            skeletalMuscleMass: m.skeletalMuscleMass ?? 0,
+          }))}
+          metric="skeletalMuscleMass"
+          label="Мышечная масса (кг)"
+          color="rgb(107, 114, 128)"
+        />
+        <MeasurementChart
+          measurements={measurements.map(m => ({
+            ...m,
+            visceralFat: m.visceralFat ?? 0,
+          }))}
+          metric="visceralFat"
+          label="Висцеральный жир"
+          color="rgb(251, 146, 60)"
+        />
+        <MeasurementChart
+          measurements={measurements.map(m => ({
+            ...m,
+            waterPercentage: m.waterPercentage ?? 0,
+          }))}
+          metric="waterPercentage"
+          label="Вода (%)"
+          color="rgb(96, 165, 250)"
+        />
+        <MeasurementChart
+          measurements={measurements.map(m => ({
+            ...m,
+            basalMetabolicRate: m.basalMetabolicRate ?? 0,
+          }))}
+          metric="basalMetabolicRate"
+          label="Базовый обмен веществ (ккал)"
+          color="rgb(34, 197, 94)"
+        />
+        <MeasurementChart
+          measurements={measurements.map(m => ({
+            ...m,
+            metabolicAge: m.metabolicAge ?? 0,
+          }))}
+          metric="metabolicAge"
+          label="Метаболический возраст (лет)"
+          color="rgb(139, 92, 246)"
         />
       </div>
 

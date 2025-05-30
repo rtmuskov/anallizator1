@@ -34,11 +34,13 @@ const AnalysisResultCard: React.FC<AnalysisResultCardProps> = ({ result }) => {
         };
       case 'obese':
       case 'very-high':
+      case 'critically-low':
+      case 'critically-high':
         return {
           icon: <XCircle className="h-6 w-6 text-error-500" />,
           color: 'bg-red-50 border-red-200',
           textColor: 'text-red-800',
-          label: 'Значительно выше нормы'
+          label: status === 'critically-low' ? 'Критически ниже нормы' : status === 'critically-high' ? 'Критически выше нормы' : 'Значительно выше нормы'
         };
       default:
         return {

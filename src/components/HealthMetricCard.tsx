@@ -7,7 +7,7 @@ interface HealthMetricCardProps {
   value: number | string;
   unit?: string;
   status?: HealthStatus;
-  previousValue?: number;
+  previousValue?: number | null;
   icon?: React.ReactNode;
 }
 
@@ -19,9 +19,7 @@ const HealthMetricCard: React.FC<HealthMetricCardProps> = ({
   previousValue,
   icon,
 }) => {
-  const percentChange = previousValue 
-    ? parseFloat((((Number(value) - previousValue) / previousValue) * 100).toFixed(1))
-    : null;
+  const numericValue = Number(value);
 
   const getStatusColor = (status: HealthStatus | undefined) => {
     if (!status) return 'bg-gray-100 text-gray-800';
@@ -37,34 +35,57 @@ const HealthMetricCard: React.FC<HealthMetricCardProps> = ({
         return 'bg-yellow-100 text-yellow-800';
       case 'obese':
       case 'very-high':
+      case 'critically-low':
+      case 'critically-high':
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
+  const getStatusText = (status: HealthStatus): string => {
+    switch (status) {
+      case 'normal': return 'Норма';
+      case 'low': return 'Ниже нормы';
+      case 'critically-low': return 'Критически ниже нормы';
+      case 'underweight': return 'Недостаточный вес';
+      case 'high': return 'Выше нормы';
+      case 'critically-high': return 'Критически выше нормы';
+      case 'overweight': return 'Избыточный вес';
+      case 'obese': return 'Ожирение';
+      case 'very-high': return 'Очень высокий'; // Можно уточнить текст
+      default: return '';
+    }
+  };
+
   const getTrendIndicator = () => {
-    if (!percentChange) return null;
-    
-    if (percentChange > 0) {
+    if (previousValue == null) return null;
+
+    const delta = numericValue - previousValue;
+
+    const percentChange = previousValue !== 0
+      ? parseFloat(((delta / previousValue) * 100).toFixed(1))
+      : (delta !== 0) ? null : 0;
+
+    if (delta > 0) {
       return (
         <div className="flex items-center text-red-500">
           <ArrowUp size={16} className="mr-1" />
-          <span>{Math.abs(percentChange)}%</span>
+          <span>{percentChange !== null ? `${Math.abs(percentChange)}%` : `+${delta.toFixed(1)}${unit}`}</span>
         </div>
       );
-    } else if (percentChange < 0) {
+    } else if (delta < 0) {
       return (
         <div className="flex items-center text-green-500">
           <ArrowDown size={16} className="mr-1" />
-          <span>{Math.abs(percentChange)}%</span>
+          <span>{percentChange !== null ? `${Math.abs(percentChange)}%` : `${delta.toFixed(1)}${unit}`}</span>
         </div>
       );
     } else {
       return (
         <div className="flex items-center text-gray-500">
           <Minus size={16} className="mr-1" />
-          <span>0%</span>
+          <span>0{unit}</span>
         </div>
       );
     }
@@ -86,19 +107,12 @@ const HealthMetricCard: React.FC<HealthMetricCardProps> = ({
           
           {status && (
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-2 ${getStatusColor(status)}`}>
-              {status === 'normal' ? 'Норма' : 
-               status === 'low' || status === 'underweight' ? 'Ниже нормы' :
-               status === 'high' || status === 'overweight' ? 'Выше нормы' :
-               'Значительно выше нормы'}
+              {getStatusText(status)}
             </span>
           )}
         </div>
         
-        {percentChange !== null && (
-          <div className="text-sm">
-            {getTrendIndicator()}
-          </div>
-        )}
+        {getTrendIndicator()}
       </div>
     </div>
   );
