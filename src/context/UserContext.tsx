@@ -22,7 +22,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const fetchedUser: User = {
           id: userData.id,
           name: userData.name,
-          email: userData.User.email,
+          email: userData.email,
           age: userData.age,
           gender: userData.gender,
           height: userData.height,
