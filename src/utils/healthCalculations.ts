@@ -167,10 +167,17 @@ export const generateAnalysis = (
   measurement: MeasurementType,
   user: User
 ): AnalysisResult[] => {
+  console.log('Debugging generateAnalysis:');
+  console.log('Measurement data:', measurement);
+  console.log('User data:', user);
+
   const analysis: AnalysisResult[] = [];
 
   const bmi = calculateBMI(measurement.weight, user.height);
   const bodyFatPercentage = calculateBodyFatPercentage(measurement.weight, measurement.fatMass);
+
+  console.log('Calculated BMI:', bmi);
+  console.log('Calculated Body Fat Percentage:', bodyFatPercentage);
 
   const bmiStatus = getBMIStatus(bmi);
   analysis.push({

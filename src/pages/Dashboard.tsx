@@ -22,9 +22,6 @@ const Dashboard: React.FC = () => {
   const latestFatPercentage = latestMeasurement && latestMeasurement.weight != null && latestMeasurement.fatMass != null
     ? calculateBodyFatPercentage(latestMeasurement.weight, latestMeasurement.fatMass)
     : undefined;
-  const latestBMI = latestMeasurement && user?.height != null
-    ? calculateBMI(latestMeasurement.weight, user.height)
-    : undefined;
 
   const previousFatPercentage = previousMeasurement && previousMeasurement.weight != null && previousMeasurement.fatMass != null
     ? calculateBodyFatPercentage(previousMeasurement.weight, previousMeasurement.fatMass)
@@ -37,7 +34,6 @@ const Dashboard: React.FC = () => {
     if (user && latestMeasurement) {
       const measurementWithCalculated = {
         ...latestMeasurement,
-        bmi: latestBMI,
         bodyFatPercentage: latestFatPercentage,
         visceralFat: latestMeasurement.visceralFat ?? 0 as number,
         skeletalMuscleMass: latestMeasurement.skeletalMuscleMass ?? 0 as number,
@@ -119,7 +115,7 @@ const Dashboard: React.FC = () => {
         />
         <HealthMetricCard
           title="ИМТ"
-          value={latestBMI ?? 0}
+          value={analysis.find(a => a.parameter.includes('ИМТ'))?.value ?? 0}
           status={analysis.find(a => a.parameter.includes('ИМТ'))?.status}
           previousValue={previousBMI ?? 0}
           icon={<Gauge size={24} />}

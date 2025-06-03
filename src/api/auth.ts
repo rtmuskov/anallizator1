@@ -44,6 +44,11 @@ export const authAPI = {
         // Этот маршрут на бэкенде должен проверять токен в заголовке
         const response = await $api.get('/auth');
         return response.data; // Бэкенд должен вернуть данные пользователя, если токен валиден
+    },
+    async getUserProfile() {
+        // Этот маршрут получает полный профиль пользователя, включая рост
+        const response = await $api.get('/user/profile'); // Предполагаем такой эндпоинт на бэкенде
+        return response.data; // Бэкенд должен вернуть объект UserInfo
     }
 };
 
